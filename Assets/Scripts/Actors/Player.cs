@@ -14,13 +14,17 @@ public class Player : MonoBehaviour
     public float moveSpeed = 8f;
     public float maxJumpHeight = 4f;
     public float timeToJumpApex = 0.4f;
-    public float coyoteTime = .1f;
+    public float coyoteTime = 0.1f;
+    public float jumpBuffer = 0.1f;
     #endregion
     #region Private float settings
     private float gravity;
     private float jumpVelocity;
-    private float currCoyoteTime;
     private float accelTime;
+    #endregion
+    #region Timers/Cooldowns
+    private float currCoyoteTime;
+    private float currJumpBuffer;
     #endregion
     #region States
     private string[] states = {"Idle", "Run", "Jump", "Fall", "SlopeSlide"};
@@ -51,7 +55,7 @@ public class Player : MonoBehaviour
 
         actorController.Move(velocity * Time.deltaTime);
 
-        jumpButtonDown = false;
+        jumpButtonDown = false; // Should probably move this
     }
 
     #region Movement
@@ -67,11 +71,29 @@ public class Player : MonoBehaviour
     #region Cooldowns
     private void RefreshGroundedCountdowns() {
         currCoyoteTime = coyoteTime;
+        if (jumpButtonDown) {
+            currJumpBuffer = jumpBuffer;
+        }
     }
 
     private void AirborneCountdowns() {
         if (currCoyoteTime > 0) {
             currCoyoteTime -= Time.deltaTime;
+        }
+        if (currJumpBuffer > 0) {
+            currJumpBuffer -= Time.deltaTime;
+        }
+    }
+
+    private void RefreshAirborneCountdowns() {
+        if (jumpButtonDown) {
+            currJumpBuffer = jumpBuffer;
+        }
+    }
+
+    private void GroundedCountdowns() {
+        if (currJumpBuffer > 0) {
+            currJumpBuffer -= Time.deltaTime;
         }
     }
     #endregion
@@ -179,8 +201,10 @@ public class Player : MonoBehaviour
             framesActive++;
             if (groundedState) {
                 player.RefreshGroundedCountdowns();
+                player.GroundedCountdowns();
             }
             else {
+                player.RefreshAirborneCountdowns();
                 player.AirborneCountdowns();
             }
         }
@@ -223,7 +247,7 @@ public class Player : MonoBehaviour
             if (!player.IsGrounded) {
                 next = "Fall";
             }
-            if (player.jumpButtonDown) {
+            if (player.currJumpBuffer > 0) {
                 next = "Jump";
             }
             return next;
@@ -276,7 +300,7 @@ public class Player : MonoBehaviour
             if (!player.IsGrounded) {
                 next = "Fall";
             }
-            if (player.JumpButtonDown) {
+            if (player.currJumpBuffer > 0) {
                 next = "Jump";
             }
             return next;
@@ -299,6 +323,7 @@ public class Player : MonoBehaviour
             base.Enter();
             Debug.Log("Jump");
             player.velocity.y = player.jumpVelocity;
+            player.currJumpBuffer = 0;
             // Play jump animation
             player.DELETEDIS.color = Color.green;
         }
@@ -373,8 +398,6 @@ public class Player : MonoBehaviour
     }
     class SlopeSlide : PlayerState {
 
-        private float timeToAccel = 0.1f;
-
         public SlopeSlide(Player player) : base(player) {
             groundedState = true;
             name = "SlopeSlide";
@@ -397,7 +420,7 @@ public class Player : MonoBehaviour
 
         public override string Change() {
             string next = "";
-            if (player.JumpButtonDown && player.IsGrounded) {
+            if (player.currJumpBuffer > 0 && player.IsGrounded) {
                 next = "Jump";
             }
             if (!player.MaxSlope) {
