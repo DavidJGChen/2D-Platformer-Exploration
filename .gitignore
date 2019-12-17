@@ -50,3 +50,4 @@ crashlytics-build.properties
 # My stuff
 *.DS_Store
 *.vscode/
+*.meta
