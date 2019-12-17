@@ -22,7 +22,7 @@ public class Player : MonoBehaviour
     private float jumpVelocity;
     private float accelTime;
     #endregion
-    #region Timers/Cooldowns
+    #region Timers/Countdowns
     private float currCoyoteTime;
     private float currJumpBuffer;
     #endregion
@@ -68,34 +68,30 @@ public class Player : MonoBehaviour
     }
     #endregion
 
-    #region Cooldowns
-    private void RefreshGroundedCountdowns() {
-        currCoyoteTime = coyoteTime;
+    #region Countdowns/Timers
+    private void RefreshCountdowns() {
         if (jumpButtonDown) {
             currJumpBuffer = jumpBuffer;
         }
+    }
+    private void Countdowns() {
+        if (currJumpBuffer > 0) {
+            currJumpBuffer -= Time.deltaTime;
+        }
+    }
+    private void RefreshGroundedCountdowns() {
+        currCoyoteTime = coyoteTime;
     }
 
     private void AirborneCountdowns() {
         if (currCoyoteTime > 0) {
             currCoyoteTime -= Time.deltaTime;
         }
-        if (currJumpBuffer > 0) {
-            currJumpBuffer -= Time.deltaTime;
-        }
     }
 
-    private void RefreshAirborneCountdowns() {
-        if (jumpButtonDown) {
-            currJumpBuffer = jumpBuffer;
-        }
-    }
+    private void RefreshAirborneCountdowns() {}
 
-    private void GroundedCountdowns() {
-        if (currJumpBuffer > 0) {
-            currJumpBuffer -= Time.deltaTime;
-        }
-    }
+    private void GroundedCountdowns() {}
     #endregion
 
     #region Accessors
@@ -200,13 +196,15 @@ public class Player : MonoBehaviour
         public virtual void Execute() {
             framesActive++;
             if (groundedState) {
-                player.RefreshGroundedCountdowns();
                 player.GroundedCountdowns();
+                player.RefreshGroundedCountdowns();
             }
             else {
-                player.RefreshAirborneCountdowns();
                 player.AirborneCountdowns();
+                player.RefreshAirborneCountdowns();
             }
+            player.Countdowns();
+            player.RefreshCountdowns();
         }
         public abstract string Change();
         public abstract void Exit();
