@@ -84,10 +84,11 @@ public class ActorController : MonoBehaviour
         currRaycastHits.Clear();
 
         if (deltaMove.y < 0) {
-            SlideMaxSlope(ref deltaMove);
-            if (!collInfo.maxSlope && deltaMove.x != 0) {
-                DescendSlope(ref deltaMove);
-            }
+            // SlideMaxSlope(ref deltaMove);
+            // if (!collInfo.maxSlope && deltaMove.x != 0) {
+            //     DescendSlope(ref deltaMove);
+            // }
+            if (deltaMove.x != 0) DescendSlope(ref deltaMove);
         }
 
         HorizontalCollisions(ref deltaMove);
@@ -278,55 +279,57 @@ public class ActorController : MonoBehaviour
 
     }
 
-    private void SlideMaxSlope(ref Vector2 deltaMove) {
-        float rayLength = Mathf.Abs(deltaMove.y) + skinWidth;
+    // private void SlideMaxSlope(ref Vector2 deltaMove) {
+    //     // float errorFloat = 0.1f;
+    //     float rayLength = Mathf.Abs(deltaMove.y) + skinWidth;
 
-        var leftHit = Physics2D.Raycast(rayOrigins.bl, Vector2.down, rayLength, collisionMask);
-		var rightHit = Physics2D.Raycast(rayOrigins.br, Vector2.down, rayLength, collisionMask);
+    //     var leftHit = Physics2D.Raycast(rayOrigins.bl, Vector2.down, rayLength, collisionMask);
+	// 	var rightHit = Physics2D.Raycast(rayOrigins.br, Vector2.down, rayLength, collisionMask);
         
-        if (leftHit || rightHit) {
+    //     if (leftHit || rightHit) {
 
-            var hit = rightHit ? rightHit : leftHit;
+    //         var hit = rightHit ? rightHit : leftHit;
 
-            if (leftHit && rightHit) {
-                hit = rightHit.distance > leftHit.distance ? leftHit : rightHit;
-            }
+    //         if (leftHit && rightHit) {
+    //             hit = rightHit.distance > leftHit.distance ? leftHit : rightHit;
+    //         }
             
-            var slopeNormal = hit.normal;
-            float slopeAngle = Vector2.Angle(slopeNormal, Vector2.up);
+    //         var slopeNormal = hit.normal;
+    //         float slopeAngle = Vector2.Angle(slopeNormal, Vector2.up);
 
-            if (slopeAngle > maxSlopeAngle) {
-                float mag = Mathf.Abs(deltaMove.y) - (hit.distance - skinWidth);
-                float dX = Mathf.Sign(hit.normal.x) * mag * Mathf.Cos(slopeAngle * Mathf.Deg2Rad);
-                if (Mathf.Sign(deltaMove.x) != Mathf.Sign(dX) || Mathf.Abs(deltaMove.x) < Mathf.Abs(dX)) {
+    //         if (slopeAngle > maxSlopeAngle) {
+    //             float mag = Mathf.Abs(deltaMove.y) - (hit.distance - skinWidth);
+    //             float dX = Mathf.Sign(hit.normal.x) * mag * Mathf.Cos(slopeAngle * Mathf.Deg2Rad);
+    //             if (Mathf.Sign(deltaMove.x) != Mathf.Sign(dX) || Mathf.Abs(deltaMove.x) < Mathf.Abs(dX)) {
 
-                    AddHit(hit);
+    //                 AddHit(hit);
 
-                    deltaMove.x = dX;
-                    deltaMove.y = -1 * mag * Mathf.Sin(slopeAngle * Mathf.Deg2Rad);
+    //                 collInfo.slopeAngle = slopeAngle;
+    //                 collInfo.maxSlope = true;
+    //                 collInfo.slopeNormal = slopeNormal;
+    //                 collInfo.below = true;
 
-                    float dirX = Mathf.Sign(deltaMove.x);
+    //                 deltaMove.x = dX;
+    //                 deltaMove.y = -1 * mag * Mathf.Sin(slopeAngle * Mathf.Deg2Rad);
 
-                    var rayOrigin = dirX < 0 ? rayOrigins.bl : rayOrigins.br;
+    //                 float dirX = Mathf.Sign(deltaMove.x);
 
-                    float skinWidthAngled = skinWidth / Mathf.Cos((90f - slopeAngle) * Mathf.Deg2Rad);
+    //                 var rayOrigin = dirX < 0 ? rayOrigins.bl : rayOrigins.br;
 
-                    hit = Physics2D.Raycast(rayOrigin, deltaMove.normalized, mag + skinWidthAngled, collisionMask); // Math not correct here
-                    if (hit) {
-                        mag = hit.distance - skinWidthAngled;
-                        deltaMove.x = dirX * mag * Mathf.Cos(slopeAngle * Mathf.Deg2Rad);
-                        deltaMove.y = -1 * mag * Mathf.Sin(slopeAngle * Mathf.Deg2Rad);
-                    }
-                    else {
-                        collInfo.slopeAngle = slopeAngle;
-                        collInfo.maxSlope = true;
-                        collInfo.slopeNormal = slopeNormal;
-                    }
-                    collInfo.below = true;
-                }
-            }
-        }
-    }
+    //                 float skinWidthAngled = skinWidth / Mathf.Cos((90f - slopeAngle) * Mathf.Deg2Rad);
+
+    //                 hit = Physics2D.Raycast(rayOrigin, deltaMove.normalized, mag + skinWidthAngled, collisionMask); // Math not correct here
+    //                 if (hit) {
+    //                     mag = hit.distance - skinWidthAngled;
+    //                     deltaMove.x = dirX * mag * Mathf.Cos(slopeAngle * Mathf.Deg2Rad);
+    //                     deltaMove.y = -1 * mag * Mathf.Sin(slopeAngle * Mathf.Deg2Rad);
+                        
+    //                     collInfo.maxSlope = false;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
     #endregion
 
     #region Collision Info
@@ -339,7 +342,7 @@ public class ActorController : MonoBehaviour
         collInfo.right = false;
         collInfo.ascendingSlope = false;
         collInfo.descendingSlope = false;
-        collInfo.maxSlope = false;
+        // collInfo.maxSlope = false;
         collInfo.slopeAngle = 0;
         collInfo.slopeNormal = Vector2.zero;
     }
@@ -348,7 +351,7 @@ public class ActorController : MonoBehaviour
         public bool left, right;
         public bool ascendingSlope;
         public bool descendingSlope;
-        public bool maxSlope;
+        // public bool maxSlope;
         public float slopeAngle;
         public Vector2 slopeNormal;
         public float prevSlopeAngle;

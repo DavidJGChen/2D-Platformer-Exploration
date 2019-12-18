@@ -17,6 +17,7 @@ public class Player : MonoBehaviour
     public float timeToJumpApex = 0.4f;
     public float coyoteTime = 0.1f;
     public float jumpBuffer = 0.5f;
+    public float bounceToJumpBuffer = 0.2f;
     #endregion
     #region Private float settings
     private float gravity;
@@ -27,15 +28,18 @@ public class Player : MonoBehaviour
     #region Timers/Countdowns
     private float currCoyoteTime;
     private float currJumpBuffer;
+    private float currBounceToJumpBuffer;
     #endregion
     #region States
-    private string[] states = {"Idle", "Run", "Jump", "Fall", "SlopeSlide", "Bounce"};
+    // private string[] states = {"Idle", "Run", "Jump", "Fall", "SlopeSlide", "Bounce"};
+    private string[] states = {"Idle", "Run", "Jump", "Fall", "Bounce"};
     #endregion
 
     private Vector2 dirInput;
     private bool jumpButtonDown;
     private bool jumpButtonUp;
     private bool bounceUp;
+    private bool lateBounceJump;
 
     private Vector2 velocity;
     private float velocitySmoothingX;
@@ -61,6 +65,7 @@ public class Player : MonoBehaviour
         CalcGravity();
 
         bounceUp = false;
+        lateBounceJump = false;
 
         actorController.Move(velocity * Time.deltaTime, normalCollision);
 
@@ -159,11 +164,11 @@ public class Player : MonoBehaviour
             return actorController.CollInfo.left;
         }
     }
-    private bool MaxSlope {
-        get {
-            return actorController.CollInfo.maxSlope;
-        }
-    }
+    // private bool MaxSlope {
+    //     get {
+    //         return actorController.CollInfo.maxSlope;
+    //     }
+    // }
     #endregion
     #region Public Methods
     #endregion
@@ -195,9 +200,9 @@ public class Player : MonoBehaviour
             case "Fall":
                 newState = new Fall(player);
                 break;
-            case "SlopeSlide":
-                newState = new SlopeSlide(player);
-                break;
+            // case "SlopeSlide":
+            //     newState = new SlopeSlide(player);
+            //     break;
             case "Bounce":
                 newState = new Bounce(player);
                 break;
@@ -270,9 +275,9 @@ public class Player : MonoBehaviour
             if (player.dirInput.x < 0) {
                 next = "Run";
             }
-            if (player.MaxSlope) {
-                next = "SlopeSlide";
-            }
+            // if (player.MaxSlope) {
+            //     next = "SlopeSlide";
+            // }
             if (!player.IsGrounded) {
                 next = "Fall";
             }
@@ -323,9 +328,9 @@ public class Player : MonoBehaviour
             if (player.DirInput.x == 0 && Mathf.Abs(player.velocity.x) < idleThreshold) {
                 next = "Idle";
             }
-            if (player.MaxSlope) {
-                next = "SlopeSlide";
-            }
+            // if (player.MaxSlope) {
+            //     next = "SlopeSlide";
+            // }
             if (!player.IsGrounded) {
                 next = "Fall";
             }
@@ -353,20 +358,27 @@ public class Player : MonoBehaviour
             Debug.Log("Jump");
             player.currJumpBuffer = 0;
 
-            float jumpVelocity = player.bounceUp ? player.maxJumpVelocity * 1.5f : player.maxJumpVelocity;
+            float jumpVelocity = player.bounceUp ? player.maxJumpVelocity * 1.25f : player.maxJumpVelocity;
+            if (player.lateBounceJump) {
+                jumpVelocity = player.maxJumpVelocity * 1.15f;
+            }
 
-            if (player.MaxSlope) {
-                var slopeNormal = player.actorController.CollInfo.slopeNormal;
-                if (player.DirInput.x != 0 && player.DirInput.x != Mathf.Sign(slopeNormal.x)) {
-                    player.velocity = (slopeNormal + Vector2.up).normalized * jumpVelocity;
-                }
-                else {
-                    player.velocity = slopeNormal * jumpVelocity;
-                }
-            }
-            else {
-                player.velocity.y = jumpVelocity;
-            }
+            // if (player.MaxSlope) {
+            //     Debug.Log("max slope detected");
+            //     var slopeNormal = player.actorController.CollInfo.slopeNormal;
+            //     if (player.DirInput.x != 0 && player.DirInput.x != Mathf.Sign(slopeNormal.x)) {
+            //         player.velocity = (slopeNormal + Vector2.up).normalized * jumpVelocity;
+            //     }
+            //     else {
+            //         player.velocity = slopeNormal * jumpVelocity;
+            //     }
+            // }
+            // else {
+            //     Debug.Log("no slope detected");
+            //     player.velocity.y = jumpVelocity;
+            // }
+
+            player.velocity.y = jumpVelocity;
             // Play jump animation
             player.DELETEDIS.color = Color.green;
         }
@@ -432,12 +444,12 @@ public class Player : MonoBehaviour
                     next = "Jump";
                 }
             }
-            if (player.MaxSlope) {
-                next = "SlopeSlide";
-            }
             if (player.JumpButtonDown && player.currCoyoteTime > 0) {
                 next = "Jump";
             }
+            // if (player.MaxSlope) {
+            //     next = "SlopeSlide";
+            // }
             return next;
         }
 
@@ -448,51 +460,60 @@ public class Player : MonoBehaviour
             player.velocity.y -= Time.deltaTime * player.gravity;
         }
     }
-    class SlopeSlide : PlayerState {
+    // class SlopeSlide : PlayerState {
 
-        public SlopeSlide(Player player) : base(player) {
-            groundedState = true;
-            name = "SlopeSlide";
-        }
+    //     public SlopeSlide(Player player) : base(player) {
+    //         groundedState = true;
+    //         name = "SlopeSlide";
+    //     }
 
-        public override void Enter() {
-            base.Enter();
-            Debug.Log("SlopeSlide");
-            player.velocity.x = 0;
-            // player.velocity.y = 0;
-            // Play jump animation
-            player.DELETEDIS.color = Color.gray;
-        }
+    //     public override void Enter() {
+    //         base.Enter();
+    //         Debug.Log("SlopeSlide");
+    //         player.velocity.x = 0;
+    //         // player.velocity.y = 0;
+    //         // Play jump animation
+    //         player.DELETEDIS.color = Color.gray;
+    //     }
 
-        public override void Execute() {
-            base.Execute();
-            player.velocity.y -= (1 - player.actorController.CollInfo.slopeNormal.y) * player.gravity * Time.deltaTime;
-            // player.accelTime = timeToAccel;
-            // player.UpdateInputVelocity();
-        }
+    //     public override void Execute() {
+    //         base.Execute();
+    //         player.velocity.y -= (1 - player.actorController.CollInfo.slopeNormal.y) * player.gravity * Time.deltaTime;
+    //         // player.accelTime = timeToAccel;
+    //         // player.UpdateInputVelocity();
+    //     }
 
-        public override string Change() {
-            string next = "";
-            if (player.currJumpBuffer > 0 && player.IsGrounded) {
-                next = "Jump";
-            }
-            if (!player.MaxSlope) {
-                if (player.velocity.x != 0) {
-                    next = "Run";
-                }
-                else {
-                    next = "Idle";
-                }
-                if (!player.IsGrounded) {
-                    next = "Fall";
-                }
-            }
-            return next;
-        }
+    //     public override string Change() {
+    //         string next = "";
+    //         if (player.currJumpBuffer > 0 && player.IsGrounded) {
+    //             next = "Jump";
+    //         }
+    //         // if (!player.MaxSlope) {
+    //         //     if (player.velocity.x != 0) {
+    //         //         next = "Run";
+    //         //     }
+    //         //     else {
+    //         //         next = "Idle";
+    //         //     }
+    //         //     if (!player.IsGrounded) {
+    //         //         next = "Fall";
+    //         //     }
+    //         // }
+    //         if (player.velocity.x != 0) {
+    //                 next = "Run";
+    //             }
+    //             else {
+    //                 next = "Idle";
+    //             }
+    //             if (!player.IsGrounded) {
+    //                 next = "Fall";
+    //             }
+    //         return next;
+    //     }
 
-        public override void Exit() {
-        }
-    }
+    //     public override void Exit() {
+    //     }
+    // }
 
     class Bounce : PlayerState {
 
@@ -508,7 +529,8 @@ public class Player : MonoBehaviour
             Debug.Log("Bounce");
             player.currJumpBuffer = 0; // TODO delete?
             player.velocity.y = -1f * player.velocity.y * 0.5f;
-            // Play jump animation
+            player.currBounceToJumpBuffer = player.bounceToJumpBuffer;
+            // Play bounce animation
             player.DELETEDIS.color = Color.yellow;
         }
 
@@ -516,6 +538,10 @@ public class Player : MonoBehaviour
             base.Execute();
             if (player.CollidingAbove) {
                 player.velocity.y = 0;
+                player.currBounceToJumpBuffer = 0;
+            }
+            if (player.currBounceToJumpBuffer > 0) {
+                player.currBounceToJumpBuffer -= Time.deltaTime;
             }
             player.accelTime = timeToAccel;
             player.UpdateInputVelocity();
@@ -523,6 +549,10 @@ public class Player : MonoBehaviour
 
         public override string Change() {
             string next = "";
+            if (player.currBounceToJumpBuffer > 0 && player.JumpButtonDown) {
+                player.lateBounceJump = true; // Remove when implementing state machine stack
+                next = "Jump"; // TODO fix
+            }
             if (player.velocity.y < 0) {
                 next = "Fall";
             }
