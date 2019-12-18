@@ -294,8 +294,8 @@ public class Player : MonoBehaviour
 
     class Run : PlayerState {
 
-        private float timeToAccel = 0.1f;
-        private float timeToDecel = 0.05f;
+        private float timeToAccel = 0.04f;
+        private float timeToDecel = 0.02f;
         private float idleThreshold = 0.2f;
 
         public Run(Player player) : base(player) {
@@ -549,7 +549,7 @@ public class Player : MonoBehaviour
 
         public override string Change() {
             string next = "";
-            if (player.currBounceToJumpBuffer > 0 && player.JumpButtonDown) {
+            if (player.currBounceToJumpBuffer > 0 && player.currJumpBuffer > 0) {
                 player.lateBounceJump = true; // Remove when implementing state machine stack
                 next = "Jump"; // TODO fix
             }
