@@ -310,7 +310,7 @@ public class Player : MonoBehaviour
 
     class Jump : PlayerState {
 
-        private float timeToAccel = 0.1f;
+        private float timeToAccel = 0.3f;
 
         public Jump(Player player) : base(player) {
             groundedState = false;
@@ -320,8 +320,13 @@ public class Player : MonoBehaviour
         public override void Enter() {
             base.Enter();
             Debug.Log("Jump");
-            player.velocity.y = player.jumpVelocity;
             player.currJumpBuffer = 0;
+            if (player.MaxSlope) {
+                player.velocity = player.actorController.CollInfo.slopeNormal * player.jumpVelocity;
+            }
+            else {
+                player.velocity.y = player.jumpVelocity;
+            }
             // Play jump animation
             player.DELETEDIS.color = Color.green;
         }
@@ -349,7 +354,7 @@ public class Player : MonoBehaviour
 
     class Fall : PlayerState {
 
-        private float timeToAccel = 0.3f;
+        private float timeToAccel = 0.6f;
 
         public Fall(Player player) : base(player) {
             groundedState = false;
@@ -404,6 +409,7 @@ public class Player : MonoBehaviour
         public override void Enter() {
             base.Enter();
             Debug.Log("SlopeSlide");
+            player.velocity.x = 0;
             // player.velocity.y = 0;
             // Play jump animation
             player.DELETEDIS.color = Color.gray;

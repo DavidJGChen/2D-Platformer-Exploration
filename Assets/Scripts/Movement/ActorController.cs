@@ -258,13 +258,13 @@ public class ActorController : MonoBehaviour
         if (leftHit || rightHit) {
 
             var hit = rightHit ? rightHit : leftHit;
-            float slopeAngle;
 
             if (leftHit && rightHit) {
                 hit = rightHit.distance > leftHit.distance ? leftHit : rightHit;
             }
-
-            slopeAngle = Vector2.Angle(hit.normal, Vector2.up);
+            
+            var slopeNormal = hit.normal;
+            float slopeAngle = Vector2.Angle(slopeNormal, Vector2.up);
 
             if (slopeAngle > maxSlopeAngle) {
                 float mag = Mathf.Abs(deltaMove.y) - (hit.distance - skinWidth);
@@ -288,7 +288,7 @@ public class ActorController : MonoBehaviour
                     else {
                         collInfo.slopeAngle = slopeAngle;
                         collInfo.maxSlope = true;
-                        collInfo.slopeNormal = hit.normal;
+                        collInfo.slopeNormal = slopeNormal;
                     }
                     collInfo.below = true;
                 }
