@@ -6,10 +6,14 @@ namespace Dawid {
 [RequireComponent(typeof(BoxCollider2D))]
 public class ActorController : MonoBehaviour
 {
+    private Player player;
+
     public float maxSlopeAngle = 45f;
     private BoxCollider2D coll;
     private RayOrigins rayOrigins;
     private CollisionInfo collInfo;
+    private List<Collider2D> currColliders;
+    private List<RaycastHit2D> currRaycastHits;
     
     public LayerMask collisionMask;
 
@@ -63,6 +67,9 @@ public class ActorController : MonoBehaviour
 
     void Awake() {
         coll = GetComponent<BoxCollider2D>();
+        currColliders = new List<Collider2D>();
+        currRaycastHits = new List<RaycastHit2D>();
+        player = GetComponent<Player>();
     }
 
     void Start() {
@@ -70,9 +77,11 @@ public class ActorController : MonoBehaviour
     }
 
     #region Public Methods
-    public void Move(Vector2 deltaMove) {
+    public void Move(Vector2 deltaMove, Player.CollisionDelegate callback) {
         UpdateRaycastOrigins();
         ResetCollisionInfo();
+        currColliders.Clear();
+        currRaycastHits.Clear();
 
         if (deltaMove.y < 0) {
             SlideMaxSlope(ref deltaMove);
@@ -92,6 +101,20 @@ public class ActorController : MonoBehaviour
         }
 
         transform.Translate(deltaMove);
+
+        // Deal with collisions here
+        for (int i = 0; i < currRaycastHits.Count; i++){
+            callback(currRaycastHits[i]);
+        }
+    }
+    #endregion
+
+    #region Collider section
+    private void AddHit(RaycastHit2D hit) {
+        if (!currColliders.Contains(hit.collider)) {
+            currColliders.Add(hit.collider);
+            currRaycastHits.Add(hit);
+        }
     }
     #endregion
 
@@ -113,6 +136,8 @@ public class ActorController : MonoBehaviour
             if (hit) {
 
                 if (hit.distance == 0) continue;
+
+                AddHit(hit);
 
                 c = Color.red;
 
@@ -167,6 +192,8 @@ public class ActorController : MonoBehaviour
             if (hit) {
 
                 if (hit.distance == 0) continue;
+
+                AddHit(hit);
 
                 deltaMove.y = (hit.distance - skinWidth) * dirY;
                 rayLength = hit.distance;
@@ -226,7 +253,7 @@ public class ActorController : MonoBehaviour
         float rayLength = Mathf.Abs(deltaMove.x) + skinWidth;
         var rayOrigin = dirX < 0 ? rayOrigins.br : rayOrigins.bl;
 
-        RaycastHit2D hit = Physics2D.Raycast(rayOrigin, Vector2.down, rayLength, collisionMask);
+        var hit = Physics2D.Raycast(rayOrigin, Vector2.down, rayLength, collisionMask);
 
         if (hit) {
             float slopeAngle = Vector2.Angle(hit.normal, Vector2.up);
@@ -241,6 +268,8 @@ public class ActorController : MonoBehaviour
 
             deltaMove.x = Mathf.Cos(slopeAngle * Mathf.Deg2Rad) * moveDist * dirX;
             deltaMove.y = Mathf.Sin(slopeAngle * Mathf.Deg2Rad) * moveDist * -1;
+
+            AddHit(hit);
 
             collInfo.slopeAngle = slopeAngle;
             collInfo.descendingSlope = true;
@@ -270,6 +299,9 @@ public class ActorController : MonoBehaviour
                 float mag = Mathf.Abs(deltaMove.y) - (hit.distance - skinWidth);
                 float dX = Mathf.Sign(hit.normal.x) * mag * Mathf.Cos(slopeAngle * Mathf.Deg2Rad);
                 if (Mathf.Sign(deltaMove.x) != Mathf.Sign(dX) || Mathf.Abs(deltaMove.x) < Mathf.Abs(dX)) {
+
+                    AddHit(hit);
+
                     deltaMove.x = dX;
                     deltaMove.y = -1 * mag * Mathf.Sin(slopeAngle * Mathf.Deg2Rad);
 

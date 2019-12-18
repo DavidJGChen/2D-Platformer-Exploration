@@ -16,7 +16,7 @@ public class Player : MonoBehaviour
     public float minJumpHeight = 2f;
     public float timeToJumpApex = 0.4f;
     public float coyoteTime = 0.1f;
-    public float jumpBuffer = 0.1f;
+    public float jumpBuffer = 0.5f;
     #endregion
     #region Private float settings
     private float gravity;
@@ -29,12 +29,13 @@ public class Player : MonoBehaviour
     private float currJumpBuffer;
     #endregion
     #region States
-    private string[] states = {"Idle", "Run", "Jump", "Fall", "SlopeSlide"};
+    private string[] states = {"Idle", "Run", "Jump", "Fall", "SlopeSlide", "Bounce"};
     #endregion
 
     private Vector2 dirInput;
     private bool jumpButtonDown;
     private bool jumpButtonUp;
+    private bool bounceUp;
 
     private Vector2 velocity;
     private float velocitySmoothingX;
@@ -43,6 +44,8 @@ public class Player : MonoBehaviour
         actorController = GetComponent<ActorController>();
         stateMachine = new PlayerStateMachine(new List<string>(states), "Idle", this);
         DELETEDIS = GetComponent<SpriteRenderer>();
+
+        normalCollision = NormalCollision;
     }
 
     void Start() {
@@ -57,11 +60,23 @@ public class Player : MonoBehaviour
 
         CalcGravity();
 
-        actorController.Move(velocity * Time.deltaTime);
+        bounceUp = false;
+
+        actorController.Move(velocity * Time.deltaTime, normalCollision);
 
         jumpButtonDown = false; // Should probably move these
         jumpButtonUp = false; // Should probably move this
     }
+
+    #region Collision delegates
+    public delegate void CollisionDelegate(RaycastHit2D hit);
+    private void NormalCollision(RaycastHit2D hit) {
+        if (hit.collider.CompareTag("Bouncy") && hit.normal.y > 0 && velocity.y < -10f) {
+            bounceUp = true;
+        }
+    }
+    private CollisionDelegate normalCollision;
+    #endregion
 
     #region Movement
     private void UpdateInputVelocity() {
@@ -182,6 +197,9 @@ public class Player : MonoBehaviour
                 break;
             case "SlopeSlide":
                 newState = new SlopeSlide(player);
+                break;
+            case "Bounce":
+                newState = new Bounce(player);
                 break;
             default:
                 Debug.Log("State not found");
@@ -327,24 +345,27 @@ public class Player : MonoBehaviour
 
         public Jump(Player player) : base(player) {
             groundedState = false;
-            name = "Idle";
+            name = "Jump";
         }
 
         public override void Enter() {
             base.Enter();
             Debug.Log("Jump");
             player.currJumpBuffer = 0;
+
+            float jumpVelocity = player.bounceUp ? player.maxJumpVelocity * 1.5f : player.maxJumpVelocity;
+
             if (player.MaxSlope) {
                 var slopeNormal = player.actorController.CollInfo.slopeNormal;
                 if (player.DirInput.x != 0 && player.DirInput.x != Mathf.Sign(slopeNormal.x)) {
-                    player.velocity = (slopeNormal + Vector2.up).normalized * player.maxJumpVelocity;
+                    player.velocity = (slopeNormal + Vector2.up).normalized * jumpVelocity;
                 }
                 else {
-                    player.velocity = slopeNormal * player.maxJumpVelocity;
+                    player.velocity = slopeNormal * jumpVelocity;
                 }
             }
             else {
-                player.velocity.y = player.maxJumpVelocity;
+                player.velocity.y = jumpVelocity;
             }
             // Play jump animation
             player.DELETEDIS.color = Color.green;
@@ -404,6 +425,12 @@ public class Player : MonoBehaviour
                 if (player.velocity.x != 0) {
                     next = "Run";
                 }
+                if (player.bounceUp && player.velocity.y < -10f) {
+                    next = "Bounce";
+                }
+                if (player.currJumpBuffer > 0) {
+                    next = "Jump";
+                }
             }
             if (player.MaxSlope) {
                 next = "SlopeSlide";
@@ -459,6 +486,45 @@ public class Player : MonoBehaviour
                 if (!player.IsGrounded) {
                     next = "Fall";
                 }
+            }
+            return next;
+        }
+
+        public override void Exit() {
+        }
+    }
+
+    class Bounce : PlayerState {
+
+        private float timeToAccel = 0.3f;
+
+        public Bounce(Player player) : base(player) {
+            groundedState = false;
+            name = "Bounce";
+        }
+
+        public override void Enter() {
+            base.Enter();
+            Debug.Log("Bounce");
+            player.currJumpBuffer = 0; // TODO delete?
+            player.velocity.y = -1f * player.velocity.y * 0.5f;
+            // Play jump animation
+            player.DELETEDIS.color = Color.yellow;
+        }
+
+        public override void Execute() {
+            base.Execute();
+            if (player.CollidingAbove) {
+                player.velocity.y = 0;
+            }
+            player.accelTime = timeToAccel;
+            player.UpdateInputVelocity();
+        }
+
+        public override string Change() {
+            string next = "";
+            if (player.velocity.y < 0) {
+                next = "Fall";
             }
             return next;
         }
