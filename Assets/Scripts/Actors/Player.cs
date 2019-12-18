@@ -13,13 +13,15 @@ public class Player : MonoBehaviour
     #region Float settings
     public float moveSpeed = 8f;
     public float maxJumpHeight = 4f;
+    public float minJumpHeight = 2f;
     public float timeToJumpApex = 0.4f;
     public float coyoteTime = 0.1f;
     public float jumpBuffer = 0.1f;
     #endregion
     #region Private float settings
     private float gravity;
-    private float jumpVelocity;
+    private float maxJumpVelocity;
+    private float minJumpVelocity;
     private float accelTime;
     #endregion
     #region Timers/Countdowns
@@ -32,6 +34,7 @@ public class Player : MonoBehaviour
 
     private Vector2 dirInput;
     private bool jumpButtonDown;
+    private bool jumpButtonUp;
 
     private Vector2 velocity;
     private float velocitySmoothingX;
@@ -43,8 +46,9 @@ public class Player : MonoBehaviour
     }
 
     void Start() {
-        gravity = (2 * maxJumpHeight) / Mathf.Pow (timeToJumpApex, 2);
-        jumpVelocity = Mathf.Abs(gravity) * timeToJumpApex;
+        gravity = (2 * maxJumpHeight) / Mathf.Pow(timeToJumpApex, 2);
+        maxJumpVelocity = gravity * timeToJumpApex;
+        minJumpVelocity = Mathf.Sqrt(2 * gravity * minJumpHeight);
     }
 
     void FixedUpdate() {
@@ -55,7 +59,8 @@ public class Player : MonoBehaviour
 
         actorController.Move(velocity * Time.deltaTime);
 
-        jumpButtonDown = false; // Should probably move this
+        jumpButtonDown = false; // Should probably move these
+        jumpButtonUp = false; // Should probably move this
     }
 
     #region Movement
@@ -109,6 +114,14 @@ public class Player : MonoBehaviour
         }
         set {
             jumpButtonDown = value;
+        }
+    }
+    public bool JumpButtonUp {
+        get {
+            return jumpButtonUp;
+        }
+        set {
+            jumpButtonUp = value;
         }
     }
     private bool IsGrounded {
@@ -322,10 +335,16 @@ public class Player : MonoBehaviour
             Debug.Log("Jump");
             player.currJumpBuffer = 0;
             if (player.MaxSlope) {
-                player.velocity = player.actorController.CollInfo.slopeNormal * player.jumpVelocity;
+                var slopeNormal = player.actorController.CollInfo.slopeNormal;
+                if (player.DirInput.x != 0 && player.DirInput.x != Mathf.Sign(slopeNormal.x)) {
+                    player.velocity = (slopeNormal + Vector2.up).normalized * player.maxJumpVelocity;
+                }
+                else {
+                    player.velocity = slopeNormal * player.maxJumpVelocity;
+                }
             }
             else {
-                player.velocity.y = player.jumpVelocity;
+                player.velocity.y = player.maxJumpVelocity;
             }
             // Play jump animation
             player.DELETEDIS.color = Color.green;
@@ -335,6 +354,9 @@ public class Player : MonoBehaviour
             base.Execute();
             if (player.CollidingAbove) {
                 player.velocity.y = 0;
+            }
+            if (player.JumpButtonUp && player.velocity.y > player.minJumpVelocity) {
+                player.velocity.y = player.minJumpVelocity;
             }
             player.accelTime = timeToAccel;
             player.UpdateInputVelocity();

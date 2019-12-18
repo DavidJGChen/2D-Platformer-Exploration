@@ -21,6 +21,9 @@ public class PlayerInput : MonoBehaviour
         if (Input.GetButtonDown("Jump")) {
             player.JumpButtonDown = true;
         }
+        if (Input.GetButtonUp("Jump")) {
+            player.JumpButtonUp = true;
+        }
 
         if (Input.GetKeyDown(KeyCode.Alpha0)) {
             UnityEngine.SceneManagement.SceneManager.LoadScene("TestScene");
