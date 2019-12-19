@@ -7,7 +7,6 @@ namespace Dawid {
 public class ActorController : MonoBehaviour
 {
     private Player player;
-
     public float maxSlopeAngle = 45f;
     private BoxCollider2D coll;
     private RayOrigins rayOrigins;
@@ -16,9 +15,12 @@ public class ActorController : MonoBehaviour
     private List<Collider2D> currCollidersV;
     private Stack<RaycastHit2D> currRaycastHitsH;
     private Stack<RaycastHit2D> currRaycastHitsV;
+    public HashSet<Collider2D> triggersInside;
+    private const int maxTriggersAllowed = 4;
     
     public LayerMask collisionMask;
     public LayerMask passthroughMask;
+    private ContactFilter2D contactFilter;
 
     #region Public Items
     public CollisionInfo CollInfo {
@@ -70,11 +72,18 @@ public class ActorController : MonoBehaviour
 
     void Awake() {
         coll = GetComponent<BoxCollider2D>();
+        player = GetComponent<Player>();
+
         currCollidersH = new List<Collider2D>();
         currRaycastHitsH = new Stack<RaycastHit2D>();
         currCollidersV = new List<Collider2D>();
         currRaycastHitsV = new Stack<RaycastHit2D>();
-        player = GetComponent<Player>();
+        triggersInside = new HashSet<Collider2D>();
+
+        contactFilter = new ContactFilter2D();
+        contactFilter.useLayerMask = true;
+        contactFilter.SetLayerMask(passthroughMask);
+        contactFilter.useTriggers = true;
     }
 
     void Start() {
@@ -82,7 +91,7 @@ public class ActorController : MonoBehaviour
     }
 
     #region Public Methods
-    public void Move(Vector2 deltaMove, Player.CollisionDelegate onCollideH, Player.CollisionDelegate onCollideV) {
+    public void Move(Vector2 deltaMove, CollisionDelegate onCollideH, CollisionDelegate onCollideV) {
         UpdateRaycastOrigins();
         ResetCollisionInfo();
         currCollidersH.Clear();
@@ -98,7 +107,9 @@ public class ActorController : MonoBehaviour
             if (deltaMove.x != 0) DescendSlope(ref deltaMove);
         }
 
-        HorizontalCollisions(ref deltaMove);
+        if (deltaMove.x != 0) {
+            HorizontalCollisions(ref deltaMove);
+        }
 
         if (deltaMove.y != 0) {
             VerticalCollisions(ref deltaMove);
@@ -133,6 +144,38 @@ public class ActorController : MonoBehaviour
             }
             onCollideV(hit);
         }
+
+        var triggerCollisionResults = new Collider2D[maxTriggersAllowed];
+
+        coll.OverlapCollider(contactFilter, triggerCollisionResults);
+
+        var newTriggers = new HashSet<Collider2D>();
+
+        foreach (var currColl in triggersInside) {
+            bool found = false;
+            foreach (var collider in triggerCollisionResults) {
+                if (currColl == collider) {
+                    found = true;
+                    break;
+                }
+            }
+            var trigger = currColl.GetComponent<Trigger>();
+            if (found) {
+                newTriggers.Add(currColl);
+                if (!trigger.Triggered) { // Shouldn't need to run
+                    trigger.Triggered = true;
+                    trigger.OnEnter(player);
+                }
+                trigger.OnStay(player);
+            }
+            else {
+                if (trigger.Triggered) {
+                    trigger.Triggered = false;
+                    trigger.OnExit(player);
+                }
+            }
+        }
+        triggersInside = newTriggers;
     }
     #endregion
 
@@ -151,6 +194,14 @@ public class ActorController : MonoBehaviour
                 currCollidersV.Add(hit.collider);
                 currRaycastHitsV.Push(hit);
             }
+        }
+    }
+    private void EnterTrigger(Collider2D collider) {
+        triggersInside.Add(collider);
+        var trigger = collider.GetComponent<Trigger>();
+        if (!trigger.Triggered) {
+            trigger.Triggered = true;
+            trigger.OnEnter(player);
         }
     }
     #endregion
@@ -173,7 +224,7 @@ public class ActorController : MonoBehaviour
             if (hit) {
 
                 if (hit.collider.isTrigger) { // Move somewhere else
-                    AddHitH(hit);
+                    EnterTrigger(hit.collider);
                     hit = Physics2D.Raycast(rayOrigin, dirX * Vector2.right, rayLength, collisionMask);
                     if (!hit) continue;
                 }
@@ -235,7 +286,7 @@ public class ActorController : MonoBehaviour
             if (hit) {
 
                 if (hit.collider.isTrigger) {
-                    AddHitV(hit);
+                    EnterTrigger(hit.collider);
                     hit = Physics2D.Raycast(rayOrigin, dirY * Vector2.up, rayLength, collisionMask);
                     if (!hit) continue;
                 }

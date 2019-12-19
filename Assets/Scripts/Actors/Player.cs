@@ -79,7 +79,6 @@ public class Player : MonoBehaviour
     }
 
     #region Collision delegates
-    public delegate void CollisionDelegate(RaycastHit2D hit);
     private void OnCollideV(RaycastHit2D hit) {
         if (hit.collider.CompareTag("Bouncy") && hit.normal.y > 0 && velocity.y < -10f) {
             bounceUp = true;
@@ -88,6 +87,12 @@ public class Player : MonoBehaviour
     private void OnCollideH(RaycastHit2D hit) {
         // velocity.x = 0;
         DELETEDIS.color = Color.magenta;
+    }
+    #endregion
+
+    #region Public Methods
+    public void ChangeColor(Color c) {
+        DELETEDIS.color = c;
     }
     #endregion
 
