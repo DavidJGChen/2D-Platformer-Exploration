@@ -38,18 +38,23 @@ public class Player : MonoBehaviour
     private Vector2 dirInput;
     private bool jumpButtonDown;
     private bool jumpButtonUp;
+    private bool walkInput;
     private bool bounceUp;
     private bool lateBounceJump;
 
     private Vector2 velocity;
     private float velocitySmoothingX;
 
+    private CollisionDelegate onCollideH;
+    private CollisionDelegate onCollideV;
+
     void Awake() {
         actorController = GetComponent<ActorController>();
         stateMachine = new PlayerStateMachine(new List<string>(states), "Idle", this);
         DELETEDIS = GetComponent<SpriteRenderer>();
 
-        normalCollision = NormalCollision;
+        onCollideH = OnCollideH;
+        onCollideV = OnCollideV;
     }
 
     void Start() {
@@ -67,7 +72,7 @@ public class Player : MonoBehaviour
         bounceUp = false;
         lateBounceJump = false;
 
-        actorController.Move(velocity * Time.deltaTime, normalCollision);
+        actorController.Move(velocity * Time.deltaTime, onCollideH, onCollideV);
 
         jumpButtonDown = false; // Should probably move these
         jumpButtonUp = false; // Should probably move this
@@ -75,17 +80,21 @@ public class Player : MonoBehaviour
 
     #region Collision delegates
     public delegate void CollisionDelegate(RaycastHit2D hit);
-    private void NormalCollision(RaycastHit2D hit) {
+    private void OnCollideV(RaycastHit2D hit) {
         if (hit.collider.CompareTag("Bouncy") && hit.normal.y > 0 && velocity.y < -10f) {
             bounceUp = true;
         }
     }
-    private CollisionDelegate normalCollision;
+    private void OnCollideH(RaycastHit2D hit) {
+        // velocity.x = 0;
+        DELETEDIS.color = Color.magenta;
+    }
     #endregion
 
     #region Movement
     private void UpdateInputVelocity() {
-        float targetVelocityX = dirInput.x * moveSpeed;
+        float walkModifier = walkInput && stateMachine.CurrState == "Run" ? 0.5f : 1f;
+        float targetVelocityX = dirInput.x * moveSpeed * walkModifier;
         velocity.x = Mathf.SmoothDamp(velocity.x, targetVelocityX, ref velocitySmoothingX, accelTime);
     }
     private void CalcGravity() {
@@ -144,6 +153,16 @@ public class Player : MonoBehaviour
             jumpButtonUp = value;
         }
     }
+
+    public bool WalkInput {
+        get {
+            return walkInput;
+        }
+        set {
+            walkInput = value;
+        }
+    }
+
     private bool IsGrounded {
         get {
             return actorController.CollInfo.below;
@@ -264,15 +283,13 @@ public class Player : MonoBehaviour
             base.Execute();
             // Change player velocity to 0
             player.velocity.x = 0;
+            player.velocitySmoothingX = 0;
             player.velocity.y = 0;
         }
 
         public override string Change() {
             string next = "";
-            if (player.dirInput.x > 0) {
-                next = "Run";
-            }
-            if (player.dirInput.x < 0) {
+            if (player.dirInput.x != 0) {
                 next = "Run";
             }
             // if (player.MaxSlope) {
@@ -295,7 +312,7 @@ public class Player : MonoBehaviour
     class Run : PlayerState {
 
         private float timeToAccel = 0.04f;
-        private float timeToDecel = 0.02f;
+        private float timeToDecel = 0.015f;
         private float idleThreshold = 0.2f;
 
         public Run(Player player) : base(player) {

@@ -12,7 +12,6 @@ public class PlayerInput : MonoBehaviour
     {
         player = GetComponent<Player>();
     }
-
     // Update is called once per frame
     void Update()
     {
@@ -23,6 +22,12 @@ public class PlayerInput : MonoBehaviour
         }
         if (Input.GetButtonUp("Jump")) {
             player.JumpButtonUp = true;
+        }
+        if (Input.GetKeyDown(KeyCode.LeftShift)) {
+            player.WalkInput = true;
+        }
+        if (Input.GetKeyUp(KeyCode.LeftShift)) {
+            player.WalkInput = false;
         }
 
         if (Input.GetKeyDown(KeyCode.Alpha0)) {

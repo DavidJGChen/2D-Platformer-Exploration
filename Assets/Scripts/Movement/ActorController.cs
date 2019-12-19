@@ -12,10 +12,13 @@ public class ActorController : MonoBehaviour
     private BoxCollider2D coll;
     private RayOrigins rayOrigins;
     private CollisionInfo collInfo;
-    private List<Collider2D> currColliders;
-    private List<RaycastHit2D> currRaycastHits;
+    private List<Collider2D> currCollidersH;
+    private List<Collider2D> currCollidersV;
+    private Stack<RaycastHit2D> currRaycastHitsH;
+    private Stack<RaycastHit2D> currRaycastHitsV;
     
     public LayerMask collisionMask;
+    public LayerMask passthroughMask;
 
     #region Public Items
     public CollisionInfo CollInfo {
@@ -67,8 +70,10 @@ public class ActorController : MonoBehaviour
 
     void Awake() {
         coll = GetComponent<BoxCollider2D>();
-        currColliders = new List<Collider2D>();
-        currRaycastHits = new List<RaycastHit2D>();
+        currCollidersH = new List<Collider2D>();
+        currRaycastHitsH = new Stack<RaycastHit2D>();
+        currCollidersV = new List<Collider2D>();
+        currRaycastHitsV = new Stack<RaycastHit2D>();
         player = GetComponent<Player>();
     }
 
@@ -77,11 +82,13 @@ public class ActorController : MonoBehaviour
     }
 
     #region Public Methods
-    public void Move(Vector2 deltaMove, Player.CollisionDelegate callback) {
+    public void Move(Vector2 deltaMove, Player.CollisionDelegate onCollideH, Player.CollisionDelegate onCollideV) {
         UpdateRaycastOrigins();
         ResetCollisionInfo();
-        currColliders.Clear();
-        currRaycastHits.Clear();
+        currCollidersH.Clear();
+        currRaycastHitsH.Clear();
+        currCollidersV.Clear();
+        currRaycastHitsV.Clear();
 
         if (deltaMove.y < 0) {
             // SlideMaxSlope(ref deltaMove);
@@ -104,17 +111,46 @@ public class ActorController : MonoBehaviour
         transform.Translate(deltaMove);
 
         // Deal with collisions here
-        for (int i = 0; i < currRaycastHits.Count; i++){
-            callback(currRaycastHits[i]);
+        float minDistH = -1f;
+        while (currRaycastHitsH.Count > 0) {
+            var hit = currRaycastHitsH.Pop();
+            if (minDistH == -1f) {
+                minDistH = hit.distance;
+            }
+            else if (hit.distance > minDistH) {
+                break;
+            }
+            onCollideH(hit);
+        }
+        float minDistV = -1f;
+        while (currRaycastHitsV.Count > 0) {
+            var hit = currRaycastHitsV.Pop();
+            if (minDistV == -1f) {
+                minDistV = hit.distance;
+            }
+            else if (hit.distance > minDistV) {
+                break;
+            }
+            onCollideV(hit);
         }
     }
     #endregion
 
     #region Collider section
-    private void AddHit(RaycastHit2D hit) {
-        if (!currColliders.Contains(hit.collider)) {
-            currColliders.Add(hit.collider);
-            currRaycastHits.Add(hit);
+    private void AddHitH(RaycastHit2D hit) {
+        if (!currCollidersH.Contains(hit.collider)) {
+            if (currRaycastHitsH.Count == 0 || currRaycastHitsH.Peek().distance >= hit.distance) {
+                currCollidersH.Add(hit.collider);
+                currRaycastHitsH.Push(hit);
+            }
+        }
+    }
+    private void AddHitV(RaycastHit2D hit) {
+        if (!currCollidersV.Contains(hit.collider)) {
+            if (currRaycastHitsV.Count == 0 || currRaycastHitsV.Peek().distance >= hit.distance) {
+                currCollidersV.Add(hit.collider);
+                currRaycastHitsV.Push(hit);
+            }
         }
     }
     #endregion
@@ -132,13 +168,17 @@ public class ActorController : MonoBehaviour
             // Debug
             Color c = Color.green;
 
-            hit = Physics2D.Raycast(rayOrigin, dirX * Vector2.right, rayLength, collisionMask);
+            hit = Physics2D.Raycast(rayOrigin, dirX * Vector2.right, rayLength, collisionMask | passthroughMask);
 
             if (hit) {
 
-                if (hit.distance == 0) continue;
+                if (hit.collider.isTrigger) { // Move somewhere else
+                    AddHitH(hit);
+                    hit = Physics2D.Raycast(rayOrigin, dirX * Vector2.right, rayLength, collisionMask);
+                    if (!hit) continue;
+                }
 
-                AddHit(hit);
+                if (hit.distance == 0) continue;
 
                 c = Color.red;
 
@@ -165,7 +205,9 @@ public class ActorController : MonoBehaviour
                     if (collInfo.ascendingSlope) {
                         deltaMove.y = Mathf.Tan(collInfo.slopeAngle * Mathf.Deg2Rad) * Mathf.Abs(deltaMove.x);
                     }
-                    
+
+                    AddHitH(hit);
+
                     if (dirX < 0) collInfo.left = true;
                     else collInfo.right = true;
                 }
@@ -188,13 +230,19 @@ public class ActorController : MonoBehaviour
             // Debug
             Color c = Color.green;
 
-            hit = Physics2D.Raycast(rayOrigin, dirY * Vector2.up, rayLength, collisionMask);
+            hit = Physics2D.Raycast(rayOrigin, dirY * Vector2.up, rayLength, collisionMask | passthroughMask);
 
             if (hit) {
 
+                if (hit.collider.isTrigger) {
+                    AddHitV(hit);
+                    hit = Physics2D.Raycast(rayOrigin, dirY * Vector2.up, rayLength, collisionMask);
+                    if (!hit) continue;
+                }
+
                 if (hit.distance == 0) continue;
 
-                AddHit(hit);
+                AddHitV(hit);
 
                 deltaMove.y = (hit.distance - skinWidth) * dirY;
                 rayLength = hit.distance;
@@ -270,7 +318,7 @@ public class ActorController : MonoBehaviour
             deltaMove.x = Mathf.Cos(slopeAngle * Mathf.Deg2Rad) * moveDist * dirX;
             deltaMove.y = Mathf.Sin(slopeAngle * Mathf.Deg2Rad) * moveDist * -1;
 
-            AddHit(hit);
+            AddHitV(hit);
 
             collInfo.slopeAngle = slopeAngle;
             collInfo.descendingSlope = true;
