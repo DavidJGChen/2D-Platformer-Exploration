@@ -12,6 +12,8 @@ public class Player : MonoBehaviour
 
     #region Float settings
     public float moveSpeed = 8f;
+    public float terminalVelocity = 35f;
+    public float ySmoothDampTime = 1f;
     public float maxJumpHeight = 4f;
     public float minJumpHeight = 2f;
     public float timeToJumpApex = 0.4f;
@@ -38,12 +40,14 @@ public class Player : MonoBehaviour
     private Vector2 dirInput;
     private bool jumpButtonDown;
     private bool jumpButtonUp;
+    private bool downButtonDown;
     private bool walkInput;
     private bool bounceUp;
     private bool lateBounceJump;
 
     private Vector2 velocity;
     private float velocitySmoothingX;
+    private float velocitySmoothingY;
 
     private CollisionDelegate onCollideH;
     private CollisionDelegate onCollideV;
@@ -76,6 +80,7 @@ public class Player : MonoBehaviour
 
         jumpButtonDown = false; // Should probably move these
         jumpButtonUp = false; // Should probably move this
+        downButtonDown = false;
     }
 
     #region Collision delegates
@@ -104,6 +109,9 @@ public class Player : MonoBehaviour
     }
     private void CalcGravity() {
         velocity.y -= gravity * Time.deltaTime;
+        if (velocity.y < -terminalVelocity) {
+            velocity.y = Mathf.SmoothDamp(velocity.y, -terminalVelocity, ref velocitySmoothingY, ySmoothDampTime);
+        }
     }
     #endregion
 
@@ -158,7 +166,14 @@ public class Player : MonoBehaviour
             jumpButtonUp = value;
         }
     }
-
+    public bool DownButtonDown {
+        get {
+            return downButtonDown;
+        }
+        set {
+            downButtonDown = value;
+        }
+    }
     public bool WalkInput {
         get {
             return walkInput;
@@ -432,6 +447,7 @@ public class Player : MonoBehaviour
     class Fall : PlayerState {
 
         private float timeToAccel = 0.6f;
+        private bool fastFall;
 
         public Fall(Player player) : base(player) {
             groundedState = false;
@@ -441,12 +457,18 @@ public class Player : MonoBehaviour
         public override void Enter() {
             base.Enter();
             Debug.Log("Fall");
+            fastFall = false;
             // Play fall animation
             player.DELETEDIS.color = Color.red;
         }
 
         public override void Execute() {
             base.Execute();
+
+            if (player.DownButtonDown) {
+                fastFall = true;
+            }
+
             player.accelTime = timeToAccel;
             player.UpdateInputVelocity();
             FallFaster();
@@ -479,7 +501,12 @@ public class Player : MonoBehaviour
         }
 
         private void FallFaster() {
-            player.velocity.y -= Time.deltaTime * player.gravity;
+            if (!fastFall)
+                player.velocity.y -= Time.deltaTime * player.gravity;
+            else {
+                player.velocity.y += Time.deltaTime * player.gravity;
+                player.velocity.y = -1 * player.terminalVelocity;
+            }
         }
     }
     class SlopeSlide : PlayerState {
